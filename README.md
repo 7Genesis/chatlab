@@ -1,48 +1,53 @@
-# ChatLab Core
+ChatLab Core
+O ChatLab é a solução definitiva para empresas que sofrem com a dispersão de conversas em múltiplos canais. Nosso motor central unifica todo o histórico de atendimento em um único lugar, eliminando silos de informação e transformando conversas fragmentadas em ativos estratégicos para o negócio.
 
-Backend desenvolvido para o ecossistema ChatLab, focado em alta disponibilidade e arquitetura multitenant.
+O Problema: A Fragmentação da Comunicação
+Empresas modernas enfrentam um gargalo crítico: a dispersão de conversas e dados em múltiplos canais (WhatsApp, redes sociais, e-mail). Esse cenário gera silos de informação, perda de histórico de atendimento e uma queda drástica na produtividade, forçando equipes a alternar entre diversas plataformas para gerenciar um único relacionamento.
 
-## Sobre o Projeto
-O ChatLab é uma solução SaaS projetada para escalabilidade. O objetivo principal deste repositório é fornecer uma estrutura robusta de backend, utilizando boas práticas de desenvolvimento, padrões SOLID e uma arquitetura orientada a serviços.
+A Solução ChatLab
+Desenvolvemos o ChatLab para ser o ponto único de verdade da comunicação empresarial.
 
-## Desafio Técnico: Integridade de Persistência em JPA
-Durante o desenvolvimento da camada de serviços, identificamos um conflito no ciclo de vida das entidades ao persistir um `Tenant` com seu usuário administrador. O Hibernate disparava o erro `StaleObjectStateException` devido ao gerenciamento de estado conflitante entre IDs gerados manualmente (via `UUID.randomUUID()`) e a expectativa do contexto de persistência.
+Unificação Operacional: Centralizamos todos os canais em uma única interface, permitindo que a equipe foque na qualidade da resposta e não na gestão de ferramentas.
 
-**Solução aplicada:**
-* Delegação da estratégia de geração de ID para o JPA (`@GeneratedValue`), eliminando a atribuição manual no código.
-* Implementação da estratégia de cascata (`CascadeType.ALL`) no relacionamento `@OneToMany`.
-* Garantia da atomicidade da transação via `@Transactional`, permitindo que o Hibernate gerencie a persistência de toda a árvore de objetos em uma única operação.
+Histórico Centralizado: Garantimos que a informação flua de maneira íntegra, tornando cada conversa um ativo de conhecimento.
 
-## Tecnologias
-* Java 21
-* Spring Boot 4.1.0
-* Spring Data JPA / Hibernate 7
-* PostgreSQL 15
-* Flyway Migration
-* Lombok
+Escalabilidade Transacional: Nossa arquitetura de persistência foi desenhada para suportar altos volumes de dados, garantindo que o negócio cresça sem falhas no atendimento.
 
-## Arquitetura
-O sistema utiliza uma estrutura em camadas (Controller, Service, Repository, Domain) para garantir a separação de responsabilidades. A persistência é gerenciada via JPA, com suporte a relacionamentos bidirecionais e propagação de estado.
+Desafio Técnico: Integridade e Escalabilidade
+Ao escalar o sistema, enfrentamos o desafio de garantir a atomicidade na criação de contas (Onboarding). Implementamos uma arquitetura robusta que assegura:
 
-## Configuração de Ambiente
-Certifique-se de ter o PostgreSQL rodando localmente com o banco `chatlab_db`.
+Consistência Total: O uso de estratégias de cascata (CascadeType.ALL) e transações gerenciadas (@Transactional) garante que nenhum cliente inicie sua jornada com dados incompletos ou órfãos.
 
-1. Clone o repositório:
-   `git clone https://github.com/7Genesis/chatlab.git`
-2. Configure as variáveis de ambiente no `application.yml`:
-   * `spring.datasource.url`: jdbc:postgresql://localhost:5432/chatlab_db
-   * `spring.datasource.username`: [seu_usuario]
-   * `spring.datasource.password`: [sua_senha]
-3. Execute o projeto:
-   `./mvnw spring-boot:run`
+Eficiência de Código: Refatoramos o ciclo de vida das entidades JPA, eliminando gargalos de persistência e garantindo que o sistema suporte o aumento da base de usuários com alta performance.
 
-## Funcionalidades Implementadas
-- [x] Estrutura base do projeto
-- [x] Mapeamento de entidades (Tenant e User)
-- [x] Suporte a persistência multitenant
-- [x] Migrations automatizadas via Flyway
+Tecnologias
+Java 21 e Spring Boot 4.1.0
 
-## Roadmap
-- [ ] Implementação de autenticação JWT
-- [ ] Criação de Response DTOs para serialização JSON e controle de dados sensíveis
-- [ ] Testes de integração automatizados
+PostgreSQL 15 (Gerenciamento de dados)
+
+Spring Data JPA / Hibernate 7 (Camada de persistência)
+
+Flyway Migration (Versionamento de banco)
+
+Lombok (Produtividade de código)
+
+Configuração de Ambiente
+Clone o repositório:
+git clone https://github.com/7Genesis/chatlab.git
+
+Configure as variáveis no application.yml:
+
+YAML
+spring.datasource.url: jdbc:postgresql://localhost:5432/chatlab_db
+spring.datasource.username: [seu_usuario]
+spring.datasource.password: [sua_senha]
+Execute: ./mvnw spring-boot:run
+
+Roadmap
+[x] Estrutura base e persistência multitenant
+
+[ ] Implementação de segurança JWT (Em andamento)
+
+[ ] Criação de Response DTOs para controle de dados sensíveis
+
+[ ] Testes de integração automatizados
