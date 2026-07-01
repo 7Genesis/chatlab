@@ -1,4 +1,5 @@
-##ChatLab Core
+##ChatLab Core##
+
 O ChatLab é a solução definitiva para empresas que sofrem com a dispersão de conversas em múltiplos canais. Nosso motor central unifica todo o histórico de atendimento em um único lugar, eliminando silos de informação e transformando conversas fragmentadas em ativos estratégicos para o negócio.
 
 O Problema: A Fragmentação da Comunicação
