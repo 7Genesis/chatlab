@@ -1,43 +1,45 @@
-# ChatLab Core
+# ChatLab
 
-O **ChatLab** é a solução definitiva para empresas que sofrem com a dispersão de conversas em múltiplos canais. Nosso motor central unifica todo o histórico de atendimento em um único lugar, eliminando silos de informação e transformando conversas fragmentadas em ativos estratégicos para o negócio.
+Backend de um hub de atendimento multi-tenant: a ideia é reunir num só lugar as conversas que hoje ficam espalhadas por WhatsApp, redes sociais e e-mail. O projeto está **em desenvolvimento**; hoje ele cobre o cadastro de empresas (tenants) e o esquema do banco versionado.
 
-## O Problema: A Fragmentação da Comunicação
-Empresas modernas enfrentam um gargalo crítico: a dispersão de dados em múltiplos canais (WhatsApp, redes sociais, e-mail). Esse cenário gera perda de histórico de atendimento e uma queda drástica na produtividade, forçando equipes a alternar entre diversas plataformas para gerenciar um único relacionamento.
+## O que já funciona
 
-## A Solução ChatLab
-Desenvolvemos o ChatLab para ser o **ponto único de verdade** da comunicação empresarial.
-- **Unificação Operacional:** Centralizamos todos os canais em uma única interface, permitindo foco total na qualidade da resposta.
-- **Histórico Centralizado:** Garantimos que a informação flua de maneira íntegra, tornando cada conversa um ativo de conhecimento.
-- **Escalabilidade Transacional:** Nossa arquitetura foi desenhada para suportar altos volumes de dados, garantindo que o negócio cresça sem falhas.
+- `POST /api/tenants` cria uma empresa e o usuário administrador dela **na mesma transação**: se algo falha, nada é gravado.
+- A senha do administrador é guardada com hash BCrypt.
+- E-mail repetido responde `400` com uma mensagem clara (tratado em `GlobalExceptionHandler`), em vez de um erro 500.
+- O esquema do banco é versionado com Flyway (`src/main/resources/db/migration`).
 
-## Desafio Técnico: Integridade e Escalabilidade
-Ao escalar o sistema, garantimos a atomicidade na criação de contas (Onboarding). Implementamos uma arquitetura robusta que assegura:
-- **Consistência Total:** O uso de estratégias de cascata (`CascadeType.ALL`) e transações gerenciadas (`@Transactional`) garante que nenhum cliente inicie sua jornada com dados incompletos.
-- **Eficiência de Código:** Refatoramos o ciclo de vida das entidades JPA, eliminando gargalos de persistência e garantindo que o sistema suporte o aumento da base de usuários com alta performance.
+Exemplo:
 
-## Tecnologias
-* **Java 21** e **Spring Boot 4.1.0**
-* **PostgreSQL 15**
-* **Spring Data JPA / Hibernate 7**
-* **Flyway Migration**
-* **Lombok**
+```bash
+curl -X POST http://localhost:8080/api/tenants \
+  -H "Content-Type: application/json" \
+  -d '{ "companyName": "Empresa Exemplo", "adminName": "Ana", "adminEmail": "ana@exemplo.com", "adminPassword": "troque-esta-senha" }'
+```
 
-## Configuração de Ambiente
-1. Clone o repositório:
-   `git clone https://github.com/7Genesis/chatlab.git`
-2. Configure as variáveis no `application.yml`:
-   ```yaml
-   spring.datasource.url: jdbc:postgresql://localhost:5432/chatlab_db
-   spring.datasource.username: [seu_usuario]
-   spring.datasource.password: [sua_senha]
-Execute: ./mvnw spring-boot:run
+Resposta (`201`):
 
-Roadmap
-[x] Estrutura base e persistência multitenant
+```json
+{ "id": "…", "companyName": "Empresa Exemplo", "active": true, "adminId": "…", "adminEmail": "ana@exemplo.com" }
+```
 
-[ ] Implementação de segurança JWT (Em andamento)
+## Stack
 
-[ ] Criação de Response DTOs para controle de dados sensíveis
+Java 21, Spring Boot 4.1, Spring Data JPA (Hibernate 7), PostgreSQL 15, Flyway e Lombok.
 
-[ ] Testes de integração automatizados
+## Como rodar
+
+1. Tenha um PostgreSQL com o banco `chatlab_db` (usuário e senha em `src/main/resources/application.yml`).
+2. Rode:
+
+   ```bash
+   ./mvnw spring-boot:run
+   ```
+
+O Flyway cria as tabelas na primeira execução.
+
+## Próximos passos
+
+- Autenticação com JWT (hoje todas as rotas estão liberadas; o `SecurityConfig` só desativa o CSRF).
+- Testes automatizados (ainda não há).
+- Canais de mensagem (WhatsApp, e-mail) e o histórico unificado de conversas, que é o objetivo do projeto.

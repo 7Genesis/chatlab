@@ -5,6 +5,7 @@ import com.chatlab.core.tenant.repository.TenantRepository;
 import com.chatlab.core.user.domain.User;
 import com.chatlab.core.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ public class TenantService {
 
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public Tenant createTenantWithAdmin(String companyName, String adminName, String adminEmail, String adminPassword) {
@@ -31,7 +33,7 @@ public class TenantService {
                 .tenant(tenant)
                 .name(adminName)
                 .email(adminEmail)
-                .passwordHash(adminPassword)
+                .passwordHash(passwordEncoder.encode(adminPassword))
                 .role("ROLE_ADMIN")
                 .active(true)
                 .build();
