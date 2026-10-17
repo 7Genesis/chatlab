@@ -20,3 +20,9 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+
+chatlab:
+  jwt:
+    # Obrigatório: no mínimo 32 caracteres. Gere um com `openssl rand -hex 32`.
+    secret: ${CHATLAB_JWT_SECRET:}
+    expiration-minutes: ${CHATLAB_JWT_EXPIRATION_MINUTES:60}

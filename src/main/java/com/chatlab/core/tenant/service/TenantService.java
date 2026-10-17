@@ -32,7 +32,7 @@ public class TenantService {
         User adminUser = User.builder()
                 .tenant(tenant)
                 .name(adminName)
-                .email(adminEmail)
+                .email(adminEmail.trim().toLowerCase())
                 .passwordHash(passwordEncoder.encode(adminPassword))
                 .role("ROLE_ADMIN")
                 .active(true)
