@@ -1,6 +1,8 @@
 package com.chatlab.core.common;
 
+import com.chatlab.core.auth.service.InvalidCredentialsException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -22,6 +24,11 @@ public class GlobalExceptionHandler {
                 .sorted()
                 .collect(Collectors.joining(" "));
         return ResponseEntity.badRequest().body(Map.of("erro", mensagem));
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<Map<String, String>> handleCredenciais(InvalidCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("erro", ex.getMessage()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
