@@ -5,6 +5,13 @@
 
 Backend de um hub de atendimento multi-tenant: a ideia é reunir num só lugar as conversas que hoje ficam espalhadas por WhatsApp, redes sociais e e-mail. O projeto está **em desenvolvimento**; hoje ele cobre o cadastro de empresas (tenants) e o esquema do banco versionado.
 
+## Em resumo
+
+- **Problema:** o atendimento de uma empresa fica espalhado por WhatsApp, redes sociais e e-mail. O ChatLab quer ser o hub único, para várias empresas (tenants) no mesmo backend.
+- **Pronto hoje:** cadastro de empresa com o administrador numa só transação, login com JWT e esquema do banco versionado. Canais de mensagem ainda não existem.
+- **Verificável:** 13 testes (10 de integração contra um PostgreSQL 15 real via Testcontainers e 3 unitários), rodados no CI a cada push na `main` e a cada pull request. Última execução local de `./mvnw verify`: 13 testes, 0 falhas, `BUILD SUCCESS`.
+- **Honestidade sobre o isolamento:** o modelo de dados e o token já carregam o tenant, mas as rotas ainda não filtram por ele. Está detalhado em [Isolamento multi-tenant](#isolamento-multi-tenant-o-que-existe-e-o-que-falta).
+
 ## O que já funciona
 
 - `POST /api/tenants` cria uma empresa e o usuário administrador dela **na mesma transação**: se algo falha, nada é gravado.
@@ -42,6 +49,43 @@ Resposta (`200`):
 { "token": "eyJ…", "tokenType": "Bearer", "expiresInSeconds": 3600 }
 ```
 
+## Isolamento multi-tenant: o que existe e o que falta
+
+Existe hoje:
+
+- Todo usuário pertence a exatamente uma empresa: `users.tenant_id` tem chave estrangeira para `tenants(id)` (`ON DELETE CASCADE`) e índice próprio (`V1__create_initial_schema.sql`). Na entidade `User` a coluna é `nullable = false`.
+- O token JWT carrega o `tenantId` do usuário, ao lado de `sub`, `role` e `email` (`JwtService`). É por essa claim que as próximas rotas vão saber de qual empresa são os dados, sem consultar o banco a cada requisição.
+- O cadastro cria empresa e administrador na mesma transação, então não existe tenant sem dono nem usuário sem tenant (coberto por `TenantApiTest`).
+
+Ainda não existe (nada disso está no código):
+
+- Validação do token nas rotas: o `SecurityConfig` libera todas as requisições.
+- Filtro por tenant nas consultas. Ainda não há tabelas de conversas ou mensagens; quando entrarem, cada consulta terá de filtrar por `tenant_id`.
+- Teste que prove que uma empresa não enxerga os dados de outra. Só faz sentido escrevê-lo quando houver dados de tenant para ler.
+
+## Decisões técnicas
+
+| Decisão | Por quê | Onde |
+|---|---|---|
+| Um esquema único com coluna `tenant_id` (em vez de um banco ou esquema por empresa) | Cadastrar uma empresa é um `INSERT` em transação, sem provisionar banco. O custo é que o isolamento depende de toda consulta filtrar por tenant, por isso o item acima é prioridade. | `V1__create_initial_schema.sql` |
+| Empresa e administrador gravados com `@Transactional` e `cascade` | Se o e-mail já existe, o `INSERT` do usuário falha e a empresa não fica gravada pela metade. | `TenantService`, teste `emailRepetidoRespondeBadRequestENaoDeixaEmpresaSolta` |
+| E-mail único no banco (`UNIQUE`), normalizado para minúsculas no cadastro e no login | A garantia fica na restrição do banco, não só na checagem da aplicação, o que vale também sob requisições concorrentes. Como o e-mail é único em todo o sistema, o login não precisa receber o tenant. Em troca, a mesma pessoa não pode ter o mesmo e-mail em duas empresas. | `V1`, `TenantService`, `AuthService`, `GlobalExceptionHandler` |
+| Banco como fonte do esquema: Flyway cria as tabelas e `ddl-auto: validate` só confere | O Hibernate nunca altera o banco. Se a entidade e a migration divergirem, a aplicação não sobe. | `application.yml`, `db/migration` |
+| Login devolve o mesmo `401` para e-mail inexistente, senha errada e usuário inativo | Não revela quais e-mails estão cadastrados. Quando o e-mail não existe, a senha é comparada com um hash falso para o tempo de resposta ficar parecido. (A resposta igual é testada; o tempo de resposta não foi medido.) | `AuthService`, `AuthApiTest` |
+| Senha com BCrypt; a API responde com DTO, nunca com a entidade | Devolver a entidade entraria em loop (`Tenant` -> `User` -> `Tenant`) e exporia o hash. Os testes conferem que a resposta não traz senha nem hash. | `SecurityConfig`, `TenantController`, `TenantApiTest` |
+| JWT HS256 com segredo vindo de variável de ambiente; a aplicação não sobe sem ele | Nenhum segredo fica no repositório, e um segredo ausente ou curto (menos de 32 caracteres) falha na inicialização, não em produção na primeira requisição. | `JwtProperties`, `JwtConfig`, `JwtPropertiesTest` |
+| Testes de integração com PostgreSQL real (Testcontainers), sem banco em memória | As migrations do Flyway rodam como em produção, então um erro de SQL ou de mapeamento aparece nos testes. O custo é exigir Docker. | `IntegrationTestBase` |
+
+## Estrutura
+
+Pacotes em `src/main/java/com/chatlab/core`, organizados por domínio:
+
+- `tenant`: empresa (`Tenant`), cadastro e `POST /api/tenants`.
+- `user`: usuário e repositório.
+- `auth`: login, geração do JWT e configuração do segredo.
+- `common`: tratamento central de erros (`GlobalExceptionHandler`).
+- `config`: segurança (`SecurityConfig`).
+
 ## Stack
 
 Java 21, Spring Boot 4.1, Spring Data JPA (Hibernate 7), PostgreSQL 15, Flyway e Lombok.
@@ -74,10 +118,18 @@ O Flyway cria as tabelas na primeira execução.
 ./mvnw verify
 ```
 
-Os testes (`TenantApiTest`) sobem a aplicação com um **PostgreSQL de verdade**, via Testcontainers, então precisam de Docker. Eles cobrem a criação da empresa com o administrador, o hash BCrypt da senha (a resposta não devolve a senha nem o hash), o e-mail repetido (`400`, sem deixar uma empresa gravada pela metade) e a validação do corpo. O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda isso a cada push na `main` e a cada pull request.
+São 13 testes. Os de integração sobem a aplicação com um **PostgreSQL 15 de verdade**, via Testcontainers, então precisam de Docker.
+
+| Classe | Testes | O que cobre |
+|---|---|---|
+| `TenantApiTest` | 4 | criação da empresa com o administrador (a resposta não devolve senha nem hash), hash BCrypt no banco, e-mail repetido (`400`, sem deixar uma empresa gravada pela metade) e validação do corpo |
+| `AuthApiTest` | 6 | login válido com conferência das claims do token (`sub`, `tenantId`, `role`), e-mail sem diferenciar maiúsculas, senha errada, e-mail inexistente (mesma resposta), usuário inativo e corpo inválido |
+| `JwtPropertiesTest` | 3 | segredo ausente ou curto e validade inválida recusados na inicialização (unitário, sem Docker) |
+
+Última execução local de `./mvnw verify`: 13 testes, 0 falhas, `BUILD SUCCESS`. O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda isso a cada push na `main` e a cada pull request.
 
 ## Próximos passos
 
 - Proteger as rotas com o token: hoje o login existe, mas todas as rotas continuam liberadas (o `SecurityConfig` só desativa o CSRF).
-- Mais testes: só o cadastro de empresas está coberto hoje.
+- Filtrar toda consulta por `tenant_id` quando surgirem as tabelas de conversas, com um teste que garanta que uma empresa não lê os dados de outra.
 - Canais de mensagem (WhatsApp, e-mail) e o histórico unificado de conversas, que é o objetivo do projeto.
