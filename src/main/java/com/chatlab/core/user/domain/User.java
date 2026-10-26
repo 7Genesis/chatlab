@@ -29,7 +29,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
+    // A coluna phone_number aceita NULL e o cadastro de empresa não pede telefone.
     private String phoneNumber;
 
     @Column(nullable = false)
